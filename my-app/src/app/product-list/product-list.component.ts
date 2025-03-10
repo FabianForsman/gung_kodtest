@@ -12,7 +12,6 @@ import { CommonModule } from '@angular/common';
   imports: [ReactiveFormsModule, CommonModule]
 })
 export class ProductListComponent implements OnInit {
-  flattenedCategories: Category[] = [];
   products: { [id: string]: { product: Product, categories: string[] } } = {};
   filteredProducts: { [id: string]: { product: Product, categories: string[] } } = {};
   newFilteredProducts: { [id: string]: { product: Product, categories: string[] } } = {};
@@ -39,6 +38,25 @@ export class ProductListComponent implements OnInit {
   constructor(private categoryService: CategoryService, private productService: ProductService) {}
 
   ngOnInit(): void {
+    this.initializeForms();
+    this.categoryService.getCategories().subscribe((categoryTree) => {
+      this.categoryTreeProductLeaf = this.getCategoriesInTree(JSON.stringify(categoryTree));
+    });
+    console.log(this.categoryTreeProductLeaf);
+    this.fetchProductDetails();
+
+    this.filterValues.categories = this.filterValues.categories;
+    this.filterForm.setValue(this.filterValues);
+    this.sortForm.setValue(this.sortValues);
+
+    Object.values(this.products).forEach(({ product }) => {
+      this.updateCategoriesForProduct(product.id);
+    });
+
+    this.newFilteredProducts = this.filteredProducts;
+  }
+
+  private initializeForms(): void {
     this.filterForm = new FormGroup({
       id: new FormControl(''),
       name: new FormControl(''),
@@ -62,33 +80,6 @@ export class ProductListComponent implements OnInit {
     this.sortForm.valueChanges.subscribe(() => {
       this.applySort(this.sortForm.value);
     });
-
-    this.categoryService.getCategories().subscribe((categoryTree) => {
-      this.flattenCategories(categoryTree);
-      this.categoryTreeProductLeaf = this.getCategoriesInTree(JSON.stringify(categoryTree));
-
-    });
-    this.fetchProductDetails();
-
-    this.filterValues.categories = this.filterValues.categories;
-    this.filterForm.setValue(this.filterValues);
-    this.sortForm.setValue(this.sortValues);
-
-    Object.values(this.products).forEach(({ product }) => {
-      this.updateCategoriesForProduct(product.id);
-    });
-
-    this.newFilteredProducts = this.filteredProducts;
-  }
-
-  private flattenCategories(category: Category): void {
-    let flatList: Category[] = [];
-    const traverse = (node: Category) => {
-      flatList.push(node);
-      node.children.forEach(traverse);
-    };
-    traverse(category);
-    this.flattenedCategories = flatList;
   }
 
   // This function will fetch the product details for each category. Only used for the initial load.
@@ -111,8 +102,8 @@ export class ProductListComponent implements OnInit {
         }
       });
     };
-    this.flattenedCategories.forEach((category) => {
-      traverse(category, []);
+    this.categoryService.getCategories().subscribe((categoryTree) => {
+      traverse(categoryTree, []);
     });
   }
 
@@ -120,7 +111,7 @@ export class ProductListComponent implements OnInit {
     const obj = JSON.parse(json);
     const traverse = (node: any): any => {
       if (node.id.startsWith('s')) {
-        const categoryNode: any = { id: node.id, children: [] };
+        const categoryNode: any = { id: node.id, name: node.name, children: [] };
         if (node.children) {
           node.children.forEach((child: any) => {
             const childNode = traverse(child);
@@ -130,12 +121,12 @@ export class ProductListComponent implements OnInit {
           });
         }
         return categoryNode;
-      } else {
+            } else {
         return node.id;
+            }
       }
-    };
     return traverse(obj);
-  }
+    }
 
   getAllCategoriesForProduct(productId: string): string[] {
     const productEntry = this.products[productId];
@@ -175,18 +166,31 @@ export class ProductListComponent implements OnInit {
     else if (categoryIds.length === 0) {
       return 'No category selected';
     }
-    else if (categoryIds.length === 1) {
-      const category = this.flattenedCategories.find((cat) => cat.id === categoryIds[0]);
-      return category ? category.name : categoryIds[0];
-    }
     categoryIds = categoryIds.slice();
-    console.log(categoryIds);
     // reverse the list so that the most specific category is first
     // if single category is selected, return the name of the category
-    return categoryIds.map((categoryId: string) => {
-      const category = this.flattenedCategories.find((cat) => cat.id === categoryId);
-      return category ? category.name : categoryId;
-    }).join(', ');
+    return categoryIds.reverse().map((categoryId: string) => {
+      return this.getCategoryName(categoryId);
+    }
+    ).join(' > ');
+  }
+
+  getCategoryName(categoryId: string): string {
+    const traverse = (node: any): string => {
+      if (node.id === categoryId) {
+        return node.name;
+      }
+      if (node.children) {
+        for (const child of node.children) {
+          const result = traverse(child);
+          if (result) {
+            return result;
+          }
+        }
+      }
+      return '';
+    }
+    return traverse(this.categoryTreeProductLeaf);
   }
 
   updateSelectedCategories(): void {
