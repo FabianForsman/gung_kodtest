@@ -38,21 +38,8 @@ export class ProductListComponent implements OnInit {
   constructor(private categoryService: CategoryService, private productService: ProductService) {}
 
   ngOnInit(): void {
+    this.loadData();
     this.initializeForms();
-    this.categoryService.getCategories().subscribe((categoryTree) => {
-      this.categoryTreeProductLeaf = this.getCategoriesInTree(JSON.stringify(categoryTree));
-    });
-    console.log(this.categoryTreeProductLeaf);
-    this.fetchProductDetails();
-
-    this.filterValues.categories = this.filterValues.categories;
-    this.filterForm.setValue(this.filterValues);
-    this.sortForm.setValue(this.sortValues);
-
-    Object.values(this.products).forEach(({ product }) => {
-      this.updateCategoriesForProduct(product.id);
-    });
-
     this.newFilteredProducts = this.filteredProducts;
   }
 
@@ -80,9 +67,23 @@ export class ProductListComponent implements OnInit {
     this.sortForm.valueChanges.subscribe(() => {
       this.applySort(this.sortForm.value);
     });
+
+    this.filterValues.categories = this.filterValues.categories; // Should not be necessary, but it is.
+    this.filterForm.setValue(this.filterValues);
+    this.sortForm.setValue(this.sortValues);
   }
 
-  // This function will fetch the product details for each category. Only used for the initial load.
+  private loadData(): void {
+    this.categoryService.getCategories().subscribe((categoryTree) => {
+      this.categoryTreeProductLeaf = this.getCategoriesInTree(JSON.stringify(categoryTree));
+    });
+    this.fetchProductDetails();
+
+    Object.values(this.products).forEach(({ product }) => {
+      this.updateCategoriesForProduct(product.id);
+    });
+  }
+
   private fetchProductDetails(): void {
     const traverse = (category: Category, parentCategories: string[]) => {
       const currentCategories = [...parentCategories, category.id];
