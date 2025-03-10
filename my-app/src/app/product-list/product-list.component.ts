@@ -15,6 +15,7 @@ export class ProductListComponent implements OnInit {
   flattenedCategories: Category[] = [];
   products: { [id: string]: { product: Product, categories: string[] } } = {};
   filteredProducts: { [id: string]: { product: Product, categories: string[] } } = {};
+  newFilteredProducts: { [id: string]: { product: Product, categories: string[] } } = {};
   filterForm!: FormGroup;
   sortForm!: FormGroup;
   categoryTreeProductLeaf: any = {};
@@ -64,20 +65,20 @@ export class ProductListComponent implements OnInit {
 
     this.categoryService.getCategories().subscribe((categoryTree) => {
       this.flattenCategories(categoryTree);
-      this.fetchProductDetails();
+      this.categoryTreeProductLeaf = this.getCategoriesInTree(JSON.stringify(categoryTree));
+
     });
+    this.fetchProductDetails();
 
     this.filterValues.categories = this.filterValues.categories;
     this.filterForm.setValue(this.filterValues);
     this.sortForm.setValue(this.sortValues);
 
-    this.categoryService.getCategories().subscribe((categoryTree) => {
-      this.categoryTreeProductLeaf = this.getCategoriesInTree(JSON.stringify(categoryTree));
-    });
-
     Object.values(this.products).forEach(({ product }) => {
       this.updateCategoriesForProduct(product.id);
     });
+
+    this.newFilteredProducts = this.filteredProducts;
   }
 
   private flattenCategories(category: Category): void {
@@ -102,6 +103,9 @@ export class ProductListComponent implements OnInit {
           traverse(child, currentCategories);
         } else {
           this.productService.getProduct(child.id).subscribe((productDetails) => {
+            if (!productDetails) {
+              productDetails = { id: child.id, name: child.name, extra: { AGA: { PRI: 0, VOL: 0, LGA: 0 } } };
+            }
             this.products[child.id] = { product: productDetails, categories: [category.id] };
           });
         }
@@ -185,7 +189,7 @@ export class ProductListComponent implements OnInit {
     }).join(', ');
   }
 
-  updateSelectedCategories(event: any): void {
+  updateSelectedCategories(): void {
     this.filterValues.categories = this.filterForm.value.categories;
     this.filterForm.setValue(this.filterValues);
     this.UpdateFilteredProducts();
@@ -228,32 +232,59 @@ export class ProductListComponent implements OnInit {
 
   applySort(sortValues: any): void {
     this.sortValues = sortValues;
-    let newFilteredProducts: { [id: string]: { product: Product, categories: string[] } } = {};
-    const sortFunctions: { [key: string]: (a: string, b: string) => number } = {
-      id: (a, b) => a.localeCompare(b),
-      name: (a, b) => this.filteredProducts[a].product.name.localeCompare(this.filteredProducts[b].product.name),
-      price: (a, b) => this.filteredProducts[a].product.extra['AGA']['PRI'] - this.filteredProducts[b].product.extra['AGA']['PRI'],
-      volume: (a, b) => this.filteredProducts[a].product.extra['AGA']['VOL'] - this.filteredProducts[b].product.extra['AGA']['VOL'],
-      stock: (a, b) => (this.filteredProducts[a].product.extra['AGA']['LGA'] > 0 ? 0 : 1) - (this.filteredProducts[b].product.extra['AGA']['LGA'] > 0 ? 0 : 1),
-      categories: (a, b) => this.getCategoryNames(this.filteredProducts[a].categories).localeCompare(this.getCategoryNames(this.filteredProducts[b].categories))
+    const sortKey = sortValues.sortKey;
+    const sortOrder = sortValues.sortOrder === 'asc' ? 1 : -1;
+
+    const sortFunctions: { [key: string]: (a: any, b: any) => number } = {
+      id: (a, b) => a.localeCompare(b) * sortOrder,
+      name: (a, b) => this.filteredProducts[a].product.name.localeCompare(this.filteredProducts[b].product.name) * sortOrder,
+      price: (a, b) => (this.filteredProducts[a].product.extra['AGA']['PRI'] - this.filteredProducts[b].product.extra['AGA']['PRI']) * sortOrder,
+      volume: (a, b) => (this.filteredProducts[a].product.extra['AGA']['VOL'] - this.filteredProducts[b].product.extra['AGA']['VOL']) * sortOrder,
+      stock: (a, b) => {
+        const stockA = this.filteredProducts[a].product.extra['AGA']['LGA'] > 0 ? 0 : 1;
+        const stockB = this.filteredProducts[b].product.extra['AGA']['LGA'] > 0 ? 0 : 1;
+        return (stockA - stockB) * sortOrder;
+      },
+      categories: (a, b) => this.getCategoryNames(this.filteredProducts[a].categories).localeCompare(this.getCategoryNames(this.filteredProducts[b].categories)) * sortOrder
     };
 
-    const sortFunction = sortFunctions[sortValues.sortKey];
-    const sortedKeys = Object.keys(this.filteredProducts).sort(sortFunction);
-    if (sortValues.sortOrder === 'desc') {
-      sortedKeys.reverse();
-    }
+    const sortedKeys = Object.keys(this.filteredProducts).sort(sortFunctions[sortKey]);
+    this.filteredProducts = sortedKeys.reduce((acc, key) => {
+      acc[key] = this.filteredProducts[key];
+      return acc;
+    }, {} as { [id: string]: { product: Product, categories: string[] } });
+  }
 
-    sortedKeys.forEach((key) => {
-      newFilteredProducts[key] = this.filteredProducts[key];
-    });
-    this.filteredProducts = newFilteredProducts;
+  submitSort(): void {
+    this.applySort(this.sortForm.value);
+    this.newFilteredProducts = this.filteredProducts;
+  }
+
+  resetFilters(): void {
+    this.filterValues = {
+      id: '',
+      name: '',
+      minPrice: null,
+      maxPrice: null,
+      minVolume: null,
+      maxVolume: null,
+      inStockOnly: false,
+      categories: []
+    };
+    this.sortValues = {
+      sortKey: 'id',
+      sortOrder: 'asc'
+    };
+    this.UpdateFilteredProducts();
+    this.applyFilters(this.filterValues);
+    this.filterForm.setValue(this.filterValues);
+    this.sortForm.setValue(this.sortValues);
+    this.submitSort();
   }
 
   getFilteredProductsArray(): { product: Product, categories: string[] }[] {
-    return Object.values(this.filteredProducts);
+    return Object.values(this.newFilteredProducts);
   }
-
 
   sortOrder(sortKey: string): void {
     this.sortValues.sortKey = sortKey;
