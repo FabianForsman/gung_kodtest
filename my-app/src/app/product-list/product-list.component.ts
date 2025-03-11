@@ -70,7 +70,7 @@ export class ProductListComponent implements OnInit {
   }
 
   private loadData(): void {
-    this.categoryService.getCategories().subscribe((categoryTree) => {
+    this.categoryService.getAlotOfCategories().subscribe((categoryTree) => {
       this.categoryTreeProductLeaf = this.getCategoriesInTree(JSON.stringify(categoryTree));
       this.fetchProductDetails(categoryTree);
     });
