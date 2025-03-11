@@ -1,28 +1,27 @@
 <div class="container">
-  <h2>Product List</h2>
   <!-- Filter Form -->
   <div id="wrapper">
     <div id="filter">
       <h2>Filter</h2>
-      <form [formGroup]="filterForm" (ngSubmit)="applyFilters($event)">
+      <form [formGroup]="filterForm">
         <div>
-          <input type="text" class="form-control" placeholder="Filter by ID" formControlName="id" (keydown.enter)="submitSort()" />
-          <input type="text" class="form-control" placeholder="Filter by Name" formControlName="name" (keydown.enter)="submitSort()" />
+          <input type="text" class="form-control" placeholder="Filter by ID" formControlName="id" (keydown.enter)="applyButton()" />
+          <input type="text" class="form-control" placeholder="Filter by Name" formControlName="name" (keydown.enter)="applyButton()" />
         </div>
         <div>
-          <input type="number" class="form-control" placeholder="Min Price" formControlName="minPrice" (keydown.enter)="submitSort()" />
-          <input type="number" class="form-control" placeholder="Max Price" formControlName="maxPrice" (keydown.enter)="submitSort()" />
+          <input type="number" class="form-control" placeholder="Min Price" formControlName="minPrice" (keydown.enter)="applyButton()" />
+          <input type="number" class="form-control" placeholder="Max Price" formControlName="maxPrice" (keydown.enter)="applyButton()" />
         </div>
         <div>
-          <input type="number" class="form-control" placeholder="Min Volume" formControlName="minVolume" (keydown.enter)="submitSort()" />
-          <input type="number" class="form-control" placeholder="Max Volume" formControlName="maxVolume" (keydown.enter)="submitSort()" />
+          <input type="number" class="form-control" placeholder="Min Volume" formControlName="minVolume" (keydown.enter)="applyButton()" />
+          <input type="number" class="form-control" placeholder="Max Volume" formControlName="maxVolume" (keydown.enter)="applyButton()" />
         </div>
         <div class="col-md-6 form-check">
-          <input type="checkbox" class="form-check-input" id="inStock" formControlName="inStockOnly" (keydown.enter)="submitSort()" />
+          <input type="checkbox" class="form-check-input" id="inStock" formControlName="inStockOnly" (keydown.enter)="applyButton()" />
           <label class="form-check-label" for="inStock">In Stock Only</label>
         </div>
         <div>
-            <select class="form-control" formControlName="categories" (change)="updateSelectedCategories()" (keydown.enter)="submitSort()">
+            <select class="form-control" formControlName="categories" (keydown.enter)="applyButton()">
               <option value="">{{ getCategoryNames(categoryTreeProductLeaf.id) || 'Select Category' }}</option>
               <ng-container *ngIf="categoryTreeProductLeaf.children">
                 <ng-container *ngFor="let category of categoryTreeProductLeaf.children">
@@ -46,29 +45,31 @@
     <!-- Sorting Form-->
     <div id="sorting">
       <h2>Sorting</h2>
-      <form [formGroup]="sortForm" (ngSubmit)="applySort($event)">
-        <div>
-          <select class="form-control" formControlName="sortKey" (keydown.enter)="submitSort()">
-            <option value="id">ID</option>
-            <option value="name">Name</option>
-            <option value="price">Price</option>
-            <option value="stock">Stock</option>
-            <option value="volume">Volume</option>
-            <option value="categories">Categories</option>
-          </select>
-          <select class="form-control" formControlName="sortOrder" (keydown.enter)="submitSort()">
-            <option value="asc">Ascending</option>
-            <option value="desc">Descending</option>
-          </select>
-        </div>
+      <form [formGroup]="sortForm">
+      <div>
+        <select class="form-control" formControlName="sortKey">
+        <option value="id">ID</option>
+        <option value="name">Name</option>
+        <option value="price">Price</option>
+        <option value="stock">Stock</option>
+        <option value="volume">Volume</option>
+        <option value="categories">Categories</option>
+        </select>
+        <select class="form-control" formControlName="sortOrder">
+        <option value="asc">Ascending</option>
+        <option value="desc">Descending</option>
+        </select>
+      </div>
       </form>
     </div>
   </div>
   <!-- Submit and reset filter buttons-->
   <div id="buttons">
-    <button class="btn btn-primary" (click)="submitSort()">Apply</button>
-    <button class="btn btn-secondary" (click)="resetFilters()">Reset</button>
+    <button class="btn btn-primary" (click)="applyButton()">Apply</button>
+    <button class="btn btn-secondary" (click)="resetButton()">Reset</button>
+  </div>
   <!-- Product List -->
+  <h2>Product List</h2>
   <table class="table table-striped table-hover">
     <thead class="thead">
       <tr>
@@ -82,24 +83,24 @@
     </thead>
     <tbody>
       <tr *ngFor="let product of getFilteredProductsArray()">
-        <td> {{ product.product.id }} </td>
-        <td> {{ product.product.name }} </td>
-        <td> {{ product.product.extra['AGA'].PRI }}</td>
-        <td>
-          <span>
-            {{ product.product.extra['AGA'].LGA > 0 ? 'In Stock' : 'Out of Stock' }}
-          </span>
-        </td>
-        <td>{{ product.product.extra['AGA'].VOL }}</td>
-         <td>{{ getCategoryNames(product.categories) }}</td>
+      <td> {{ product.product.id }} </td>
+      <td> {{ product.product.name }} </td>
+      <td> {{ product.product.extra['AGA'].PRI }}</td>
+      <td>
+        <span>
+        {{ product.product.extra['AGA'].LGA > 0 ? 'In Stock' : 'Out of Stock' }}
+        </span>
+      </td>
+      <td>{{ product.product.extra['AGA'].VOL }}</td>
+       <td>{{ getCategoryNames(product.categories) }}</td>
       </tr>
     </tbody>
   </table>
 </div>
 
-{{ products | json }}
+<!--{{ products | json }}
 <p></p>
 {{ filteredProducts | json }}
 <p></p>
 {{categoryTreeProductLeaf | json}}
-<p></p>
+<p></p>-->

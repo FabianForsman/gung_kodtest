@@ -14,10 +14,10 @@ import { CommonModule } from '@angular/common';
 export class ProductListComponent implements OnInit {
   products: { [id: string]: { product: Product, categories: string[] } } = {};
   filteredProducts: { [id: string]: { product: Product, categories: string[] } } = {};
-  newFilteredProducts: { [id: string]: { product: Product, categories: string[] } } = {};
   filterForm!: FormGroup;
   sortForm!: FormGroup;
   categoryTreeProductLeaf: any = {};
+  submitted: boolean = false;
   
   filterValues: any = {
     id: '',
@@ -40,7 +40,7 @@ export class ProductListComponent implements OnInit {
   ngOnInit(): void {
     this.loadData();
     this.initializeForms();
-    this.newFilteredProducts = this.filteredProducts;
+    this.resetButton();
   }
 
   private initializeForms(): void {
@@ -60,13 +60,9 @@ export class ProductListComponent implements OnInit {
       sortOrder: new FormControl('asc')
     });
 
-    this.filterForm.valueChanges.subscribe(() => {
-      this.applyFilters(this.filterForm.value);
-    });
-
-    this.sortForm.valueChanges.subscribe(() => {
-      this.applySort(this.sortForm.value);
-    });
+    //this.sortForm.valueChanges.subscribe(() => {
+    //  this.applySort(this.sortForm.value);
+    //});
 
     this.filterValues.categories = this.filterValues.categories; // Should not be necessary, but it is.
     this.filterForm.setValue(this.filterValues);
@@ -76,15 +72,14 @@ export class ProductListComponent implements OnInit {
   private loadData(): void {
     this.categoryService.getCategories().subscribe((categoryTree) => {
       this.categoryTreeProductLeaf = this.getCategoriesInTree(JSON.stringify(categoryTree));
+      this.fetchProductDetails(categoryTree);
     });
-    this.fetchProductDetails();
-
     Object.values(this.products).forEach(({ product }) => {
       this.updateCategoriesForProduct(product.id);
     });
   }
 
-  private fetchProductDetails(): void {
+  private fetchProductDetails(categoryTree: any): void {
     const traverse = (category: Category, parentCategories: string[]) => {
       const currentCategories = [...parentCategories, category.id];
       if (category.children.length === 0) {
@@ -103,9 +98,7 @@ export class ProductListComponent implements OnInit {
         }
       });
     };
-    this.categoryService.getCategories().subscribe((categoryTree) => {
-      traverse(categoryTree, []);
-    });
+    traverse(categoryTree, []);
   }
 
   private getCategoriesInTree(json: string): any {
@@ -122,12 +115,12 @@ export class ProductListComponent implements OnInit {
           });
         }
         return categoryNode;
-            } else {
+      } else {
         return node.id;
-            }
       }
+    };
     return traverse(obj);
-    }
+  }
 
   getAllCategoriesForProduct(productId: string): string[] {
     const productEntry = this.products[productId];
@@ -163,8 +156,7 @@ export class ProductListComponent implements OnInit {
   getCategoryNames(categoryIds: any): string {
     if (!Array.isArray(categoryIds)) {
       categoryIds = [categoryIds];
-    }
-    else if (categoryIds.length === 0) {
+    } else if (categoryIds.length === 0) {
       return 'No category selected';
     }
     categoryIds = categoryIds.slice();
@@ -172,8 +164,7 @@ export class ProductListComponent implements OnInit {
     // if single category is selected, return the name of the category
     return categoryIds.reverse().map((categoryId: string) => {
       return this.getCategoryName(categoryId);
-    }
-    ).join(' > ');
+    }).join(' > ');
   }
 
   getCategoryName(categoryId: string): string {
@@ -190,19 +181,8 @@ export class ProductListComponent implements OnInit {
         }
       }
       return '';
-    }
+    };
     return traverse(this.categoryTreeProductLeaf);
-  }
-
-  updateSelectedCategories(): void {
-    this.filterValues.categories = this.filterForm.value.categories;
-    this.filterForm.setValue(this.filterValues);
-    this.UpdateFilteredProducts();
-  }
-
-  applyFilters(event: any): void {
-    this.filterValues = event;
-    this.UpdateFilteredProducts();
   }
 
   private UpdateFilteredProducts(): void {
@@ -225,10 +205,10 @@ export class ProductListComponent implements OnInit {
       this.filterValues.maxPrice && prod.product.extra['AGA']['PRI'] > this.filterValues.maxPrice ||
       this.filterValues.minVolume && prod.product.extra['AGA']['VOL'] < this.filterValues.minVolume ||
       this.filterValues.maxVolume && prod.product.extra['AGA']['VOL'] > this.filterValues.maxVolume ||
-      this.filterValues.inStockOnly && prod.product.extra['AGA']['LGA'] <= 0 ) {
+      this.filterValues.inStockOnly && prod.product.extra['AGA']['LGA'] <= 0) {
       return false;
     }
-      // if this.filterValues.categories is not in categories
+    // if this.filterValues.categories is not in categories
     if (!categories.includes(this.filterValues.categories) && this.filterValues.categories.length > 0) {
       return false;
     }
@@ -260,12 +240,18 @@ export class ProductListComponent implements OnInit {
     }, {} as { [id: string]: { product: Product, categories: string[] } });
   }
 
-  submitSort(): void {
-    this.applySort(this.sortForm.value);
-    this.newFilteredProducts = this.filteredProducts;
+  setSotringOrder(event: any): void {
+    this.sortValues.sortOrder = event.target.value;
   }
 
-  resetFilters(): void {
+  applyButton(): void {
+    this.submitted = true;
+    this.filterValues = this.filterForm.value;
+    this.sortValues = this.sortForm.value;
+    this.UpdateFilteredProducts();
+  }
+
+  resetButton(): void {
     this.filterValues = {
       id: '',
       name: '',
@@ -281,24 +267,26 @@ export class ProductListComponent implements OnInit {
       sortOrder: 'asc'
     };
     this.UpdateFilteredProducts();
-    this.applyFilters(this.filterValues);
     this.filterForm.setValue(this.filterValues);
     this.sortForm.setValue(this.sortValues);
-    this.submitSort();
+    this.applyButton();
+    this.submitted = false;
   }
 
   getFilteredProductsArray(): { product: Product, categories: string[] }[] {
-    return Object.values(this.newFilteredProducts);
+    if (this.submitted) {
+      this.UpdateFilteredProducts();
+    }
+    this.submitted = false;
+    return Object.values(this.filteredProducts);
   }
 
   sortOrder(sortKey: string): void {
     this.sortValues.sortKey = sortKey;
     this.sortValues.sortOrder = this.sortValues.sortOrder === 'asc' ? 'desc' : 'asc';
-    this.sortForm.setValue(this.sortValues);
   }
 
   setSortKey(sortKey: string): void {
     this.sortValues.sortKey = sortKey;
-    this.sortForm.setValue(this.sortValues);
   }
 }
