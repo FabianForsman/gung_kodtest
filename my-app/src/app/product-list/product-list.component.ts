@@ -172,11 +172,8 @@ export class ProductListComponent implements OnInit {
       ((filters.categories.some((category: string) => categories.includes(category))) || empty)  &&
       !product.id.startsWith('s'); // Id may not start with 's'
     });
-
-    // if (!categories.includes(this.filterValues.categories) && this.filterValues.categories.length > 0)
   
     this.sortProducts(filteredArray);
-    
     this.filteredProducts$.next([...filteredArray]);
   }
   
