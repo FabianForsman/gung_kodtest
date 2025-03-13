@@ -22,16 +22,16 @@
         </div>
         <div>
             <select class="form-control" formControlName="categories" (keydown.enter)="applyButton()">
-              <option value="">{{ getCategoryNames(categoryTreeProductLeaf.id) || 'Select Category' }}</option>
+              <option value="">{{ categoryTreeProductLeaf.name || 'Select Category' }}</option>
               <ng-container *ngIf="categoryTreeProductLeaf.children">
                 <ng-container *ngFor="let category of categoryTreeProductLeaf.children">
-                  <option [value]="category.id">{{ getCategoryNames(category.id) || 'Unnamed Category' }}</option>
+                  <option [value]="category.id">{{ category.name || 'Unnamed Category' }}</option>
                   <ng-container *ngIf="category.children && category.children.length > 0">
                     <ng-container *ngFor="let subCategory of category.children">
-                      <option *ngIf="getCategoryNames(subCategory.id)" [value]="subCategory.id">- {{ getCategoryNames(subCategory.id) }}</option>
+                      <option *ngIf="getCategoryNames(subCategory.id)" [value]="subCategory.id">- {{ subCategory.name }}</option>
                       <ng-container *ngIf="subCategory.children && subCategory.children.length > 0">
                         <ng-container *ngFor="let subSubCategory of subCategory.children">
-                          <option *ngIf="getCategoryNames(subSubCategory.id)" [value]="subSubCategory.id">-- {{ getCategoryNames(subSubCategory.id) }}</option>
+                          <option *ngIf="getCategoryNames(subSubCategory.id)" [value]="subSubCategory.id">-- {{ subSubCategory.id }}</option>
                         </ng-container>
                       </ng-container>
                     </ng-container>
@@ -98,9 +98,11 @@
   </table>
 </div>
 
-<!--{{ products | json }}
+<!--
+{{ products | json }}
 <p></p>
 {{ filteredProducts | json }}
 <p></p>
 {{categoryTreeProductLeaf | json}}
-<p></p>-->
+<p></p>
+-->

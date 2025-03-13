@@ -3,6 +3,8 @@ import { CategoryService, Category } from '../services/category.service';
 import { ProductService, Product } from '../services/product.service';
 import { FormGroup, FormControl, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { switchMap, forkJoin, Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 @Component({
   selector: 'app-product-list',
@@ -17,6 +19,8 @@ export class ProductListComponent implements OnInit {
   filterForm!: FormGroup;
   sortForm!: FormGroup;
   categoryTreeProductLeaf: any = {};
+  productIndex: Map<string, Product> = new Map();
+  categoryNameCache: Map<string, string> = new Map();
   submitted: boolean = false;
   
   filterValues: any = {
@@ -60,26 +64,28 @@ export class ProductListComponent implements OnInit {
       sortOrder: new FormControl('asc')
     });
 
-    //this.sortForm.valueChanges.subscribe(() => {
-    //  this.applySort(this.sortForm.value);
-    //});
-
     this.filterValues.categories = this.filterValues.categories; // Should not be necessary, but it is.
     this.filterForm.setValue(this.filterValues);
     this.sortForm.setValue(this.sortValues);
   }
 
   private loadData(): void {
-    this.categoryService.getAlotOfCategories().subscribe((categoryTree) => {
-      this.categoryTreeProductLeaf = this.getCategoriesInTree(JSON.stringify(categoryTree));
-      this.fetchProductDetails(categoryTree);
+    this.categoryService.getAlotOfCategories().pipe(
+      switchMap((categoryTree) => {
+        this.categoryTreeProductLeaf = Array.from(this.getCategoryMap(JSON.stringify(categoryTree)).values())[0];
+        return this.fetchProductDetails(categoryTree);
+      })
+    ).subscribe(() => {
+      Object.values(this.products).forEach(({ product }) => {
+        this.updateCategoriesForProduct(product.id);
+      });
     });
-    Object.values(this.products).forEach(({ product }) => {
-      this.updateCategoriesForProduct(product.id);
-    });
+
+    this.indexProducts();
   }
 
-  private fetchProductDetails(categoryTree: any): void {
+  private fetchProductDetails(categoryTree: any): Observable<any> {
+    const productRequests: { id: string, categories: string[] }[] = [];
     const traverse = (category: Category, parentCategories: string[]) => {
       const currentCategories = [...parentCategories, category.id];
       if (category.children.length === 0) {
@@ -89,23 +95,55 @@ export class ProductListComponent implements OnInit {
         if (child.children.length > 0) {
           traverse(child, currentCategories);
         } else {
-          this.productService.getProduct(child.id).subscribe((productDetails) => {
-            if (!productDetails) {
-              productDetails = { id: child.id, name: child.name, extra: { AGA: { PRI: 0, VOL: 0, LGA: 0 } } };
-            }
-            this.products[child.id] = { product: productDetails, categories: [category.id] };
-          });
+          productRequests.push({ id: child.id, categories: currentCategories });
         }
       });
     };
     traverse(categoryTree, []);
+
+    const batchSize = 10;
+    const batches = [];
+    for (let i = 0; i < productRequests.length; i += batchSize) {
+      const batch = productRequests.slice(i, i + batchSize);
+      batches.push(
+        forkJoin(
+          batch.map((request) =>
+            this.productService.getProduct(request.id).pipe(
+              map((productDetails: Product) => {
+                if (!productDetails) {
+                  productDetails = { id: request.id, name: '', extra: { AGA: { PRI: 0, VOL: 0, LGA: 0 } } };
+                }
+                if (!this.products[request.id]) {
+                  this.products[request.id] = { product: productDetails, categories: request.categories };
+                } else {
+                  this.products[request.id].categories.push(...request.categories);
+                }
+                return [];
+              })
+            )
+          )
+        )
+      );
+    }
+    return forkJoin(batches);
   }
 
-  private getCategoriesInTree(json: string): any {
+  private indexProducts(): void {
+    this.productIndex.clear();
+    Object.values(this.products).forEach(({ product }) => {
+      this.productIndex.set(product.id, product);
+    });
+  }
+
+  private getCategoryMap(json: string): any {
     const obj = JSON.parse(json);
+    const categoryMap = new Map<string, any>();
+
     const traverse = (node: any): any => {
+      console.log('Processing node:', node); // Debugging line
       if (node.id.startsWith('s')) {
         const categoryNode: any = { id: node.id, name: node.name, children: [] };
+        categoryMap.set(node.id, categoryNode);
         if (node.children) {
           node.children.forEach((child: any) => {
             const childNode = traverse(child);
@@ -119,8 +157,11 @@ export class ProductListComponent implements OnInit {
         return node.id;
       }
     };
-    return traverse(obj);
-  }
+
+    traverse(obj);
+    console.log('Category Map:', categoryMap); // Debugging line
+    return categoryMap;
+}
 
   getAllCategoriesForProduct(productId: string): string[] {
     const productEntry = this.products[productId];
@@ -153,7 +194,7 @@ export class ProductListComponent implements OnInit {
     this.products[productId].categories = this.getAllCategoriesForProduct(productId);
   }
 
-  getCategoryNames(categoryIds: any): string {
+  getCategoryNames(categoryIds: string[]): string {
     if (!Array.isArray(categoryIds)) {
       categoryIds = [categoryIds];
     } else if (categoryIds.length === 0) {
@@ -163,11 +204,14 @@ export class ProductListComponent implements OnInit {
     // reverse the list so that the most specific category is first
     // if single category is selected, return the name of the category
     return categoryIds.reverse().map((categoryId: string) => {
-      return this.getCategoryName(categoryId);
-    }).join(' > ');
+      if (!this.categoryNameCache.has(categoryId)) {
+        this.categoryNameCache.set(categoryId, this.getCategoryName(categoryId));
+      }
+      return this.categoryNameCache.get(categoryId)!;
+    }).reverse().join(' > ');
   }
 
-  getCategoryName(categoryId: string): string {
+  private getCategoryName(categoryId: string): string {
     const traverse = (node: any): string => {
       if (node.id === categoryId) {
         return node.name;
@@ -198,14 +242,16 @@ export class ProductListComponent implements OnInit {
   }
 
   filterProduct(product: Product, categories: string[]): boolean {
-    let prod = this.products[product.id];
-    if (this.filterValues.id && !prod.product.id.includes(this.filterValues.id) ||
-      this.filterValues.name && !prod.product.name.includes(this.filterValues.name) ||
-      this.filterValues.minPrice && prod.product.extra['AGA']['PRI'] < this.filterValues.minPrice ||
-      this.filterValues.maxPrice && prod.product.extra['AGA']['PRI'] > this.filterValues.maxPrice ||
-      this.filterValues.minVolume && prod.product.extra['AGA']['VOL'] < this.filterValues.minVolume ||
-      this.filterValues.maxVolume && prod.product.extra['AGA']['VOL'] > this.filterValues.maxVolume ||
-      this.filterValues.inStockOnly && prod.product.extra['AGA']['LGA'] <= 0) {
+    let prod = this.productIndex.get(product.id);
+    if (!prod) return false;
+
+    if (this.filterValues.id && !prod.id.includes(this.filterValues.id) ||
+      this.filterValues.name && !prod.name.includes(this.filterValues.name) ||
+      this.filterValues.minPrice && prod.extra['AGA']['PRI'] < this.filterValues.minPrice ||
+      this.filterValues.maxPrice && prod.extra['AGA']['PRI'] > this.filterValues.maxPrice ||
+      this.filterValues.minVolume && prod.extra['AGA']['VOL'] < this.filterValues.minVolume ||
+      this.filterValues.maxVolume && prod.extra['AGA']['VOL'] > this.filterValues.maxVolume ||
+      this.filterValues.inStockOnly && prod.extra['AGA']['LGA'] <= 0) {
       return false;
     }
     // if this.filterValues.categories is not in categories
