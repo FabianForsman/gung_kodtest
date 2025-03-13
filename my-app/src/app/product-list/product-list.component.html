@@ -22,7 +22,7 @@
         </div>
         <div>
           <div class="form-group">
-            <select class="form-control" formControlName="categories" multiple size="10" id="categories">
+            <select class="form-control-categories" formControlName="categories" multiple size="10" id="categories">
               <option value="">{{ 'Select Category' }}</option>
               <ng-container *ngFor="let category of categoryIdTree">
                 <option [value]="category.id">{{ categoryNameCache.get(category.id) }}</option>
@@ -78,12 +78,12 @@
   <table class="table table-striped table-hover">
     <thead>
       <tr>
-        <th (click)="sortForm.patchValue({ sortKey: 'id' })">ID</th>
-        <th (click)="sortForm.patchValue({ sortKey: 'name' })">Name</th>
-        <th (click)="sortForm.patchValue({ sortKey: 'price' })">Price</th>
-        <th (click)="sortForm.patchValue({ sortKey: 'stock' })">Stock</th>
-        <th (click)="sortForm.patchValue({ sortKey: 'volume' })">Volume</th>
-        <th (click)="sortForm.patchValue({ sortKey: 'categories' })">Categories</th>
+        <th (click)="sortForm.patchValue({ sortKey: 'id' })" class="clickable table-header">ID</th>
+        <th (click)="sortForm.patchValue({ sortKey: 'name' })" class="clickable table-header">Name</th>
+        <th (click)="sortForm.patchValue({ sortKey: 'price' })" class="clickable table-header">Price</th>
+        <th (click)="sortForm.patchValue({ sortKey: 'stock' })" class="clickable table-header">Stock</th>
+        <th (click)="sortForm.patchValue({ sortKey: 'volume' })" class="clickable table-header">Volume</th>
+        <th (click)="sortForm.patchValue({ sortKey: 'categories' })" class="clickable table-header">Categories</th>
       </tr>
     </thead>
     <tbody>

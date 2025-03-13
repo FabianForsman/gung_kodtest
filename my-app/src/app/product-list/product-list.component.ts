@@ -58,7 +58,7 @@ export class ProductListComponent implements OnInit {
   }
 
   private loadData(): void {
-    this.categoryService.getAlotOfCategories().pipe(
+    this.categoryService.getCategories().pipe(
       switchMap(categoryTree => {
         this.categoryTreeLeafMap = this.flattenCategoryTree(categoryTree);
         return this.fetchProductDetails(categoryTree);
