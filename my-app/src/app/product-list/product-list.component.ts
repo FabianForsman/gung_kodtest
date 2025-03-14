@@ -35,7 +35,9 @@ export class ProductListComponent implements OnInit {
     this.initializeForms();
     this.loadData();
   }
-
+  /**
+   * Initialize the filter and sort forms
+   */
   private initializeForms(): void {
     this.filterForm = new FormGroup({
       id: new FormControl(''),
@@ -56,7 +58,9 @@ export class ProductListComponent implements OnInit {
     this.filterForm.valueChanges.subscribe(() => this.updateFilteredProducts());
     this.sortForm.valueChanges.subscribe(() => this.updateFilteredProducts());
   }
-
+  /**
+   * Load the category tree and product details
+   */
   private loadData(): void {
     this.categoryService.getCategories().pipe(
       switchMap(categoryTree => {
@@ -69,7 +73,11 @@ export class ProductListComponent implements OnInit {
     });
 
   }
-
+  /**
+   * Flatten the category tree and cache the category names
+   * @param categoryTree 
+   * @returns  A map of category id to category name
+   */
   private flattenCategoryTree(categoryTree: Category): Map<string, string[]> {
     const categoryMap = new Map<string, string[]>();
 
@@ -100,7 +108,12 @@ export class ProductListComponent implements OnInit {
     console.log(categoryMap);
     return categoryMap;
   }
-
+  /**
+   * Find a node in the category tree by id
+   * @param tree 
+   * @param id 
+   * @returns 
+   */
   findNodeById(tree: categoryIdTree[], id: string): categoryIdTree | undefined {
     for (let i = 0; i < tree.length; i++) {
       if (tree[i].id === id) {
@@ -114,6 +127,11 @@ export class ProductListComponent implements OnInit {
     return undefined;
   }
 
+  /**
+   * Fetch the product details for each product in the category tree
+   * @param categoryTree 
+   * @returns 
+   */
   private fetchProductDetails(categoryTree: Category): Observable<any> {
     const productRequests: { id: string, categories: string[] }[] = [];
 
@@ -145,6 +163,9 @@ export class ProductListComponent implements OnInit {
     return forkJoin(batches);
   }
 
+  /**
+   * Index the products by id
+   */
   private indexProducts(): void {
     this.productIndex.clear();
     this.products.forEach(({ product }) => {
@@ -152,6 +173,9 @@ export class ProductListComponent implements OnInit {
     });
   }
 
+  /**
+   * Update the filtered products based on the filter and sort forms
+   */
   private updateFilteredProducts(): void {
     const filters = this.filterForm.value;
     let empty = false;
@@ -177,7 +201,10 @@ export class ProductListComponent implements OnInit {
     this.filteredProducts$.next([...filteredArray]);
   }
   
-
+  /**
+   * Sort the products based on the sort form
+   * @param products 
+   */
   private sortProducts(products: { product: Product, categories: string[] }[]): void {
     const { sortKey, sortOrder } = this.sortForm.value;
     const orderMultiplier = sortOrder === 'asc' ? 1 : -1;
@@ -196,16 +223,27 @@ export class ProductListComponent implements OnInit {
     }
   }
 
+  /**
+   * Get the category names from category ids
+   * @param categoryIds 
+   * @returns 
+   */
   getCategoryNames(categoryIds: string[]): string {
     return categoryIds
       .map(categoryId => this.categoryNameCache.get(categoryId) || categoryId) 
       .join(' > ');
   }
 
+  /**
+   * Apply the filter and update the filtered products
+   */
   applyButton(): void {
     this.updateFilteredProducts();
   }
 
+  /**
+   * Reset the filter and sort forms
+   */
   resetButton(): void {
     this.filterForm.reset({
       id: '',
